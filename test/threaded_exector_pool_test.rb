@@ -45,11 +45,11 @@ module Resque
     end
 
     it "can be constructed" do
-      assert ThreadedExecutorPool.new(::Queue.new, 1)
+      assert ThreadedExecutorPool.new(1)
     end
 
     it "runs the job" do
-      pool = ThreadedExecutorPool.new(::Queue.new, 1)
+      pool = ThreadedExecutorPool.new(1)
       job  = Actionable.new
       pool.execute(job)
       pool.shutdown
@@ -58,7 +58,7 @@ module Resque
     end
 
     it "shuts down" do
-      pool = ThreadedExecutorPool.new(::Queue.new, 1)
+      pool = ThreadedExecutorPool.new(1)
       job  = Actionable.new
       pool.shutdown
 
@@ -68,7 +68,7 @@ module Resque
 
     it "calls block when executing a job on a shutdown pool" do
       a    = 1
-      pool = ThreadedExecutorPool.new(::Queue.new, 1) { a = 2 }
+      pool = ThreadedExecutorPool.new(1) { a = 2 }
       job  = Actionable.new
       pool.shutdown
 
@@ -79,7 +79,7 @@ module Resque
     end
 
     it "runs the jobs concurrently" do
-      pool          = ThreadedExecutorPool.new(::Queue.new, 2)
+      pool          = ThreadedExecutorPool.new(2)
       waiting_latch = Consumer::Latch.new
       main_latch    = Consumer::Latch.new
       waiting_job   = WaitingJob.new(waiting_latch, main_latch)

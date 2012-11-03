@@ -3,8 +3,8 @@ module Resque
   class ThreadedExecutorPool
     POISON = :poison
 
-    def initialize(queue, pool_size, &block)
-      @queue              = queue
+    def initialize(pool_size, &block)
+      @queue              = ::Queue.new
       @pool_size          = pool_size
       @threads            = []
       @job_count          = 0
