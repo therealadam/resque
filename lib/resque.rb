@@ -20,6 +20,7 @@ require 'resque/json_coder'
 require 'resque/consumer'
 require 'resque/threaded_consumer_pool'
 require 'resque/threaded_executor_pool'
+require 'resque/threaded_worker'
 require 'resque/connection_pool'
 require 'resque/sized_stack'
 

@@ -4,7 +4,7 @@ module Resque
     POISON = :poison
 
     def initialize(pool_size, &block)
-      @queue              = ::Queue.new
+      @queue              = ::Queue.new # XXX inject Queue class
       @pool_size          = pool_size
       @threads            = []
       @job_count          = 0
@@ -35,7 +35,7 @@ module Resque
     def construct_thread
       Thread.new {
         while job = @queue.pop
-          if job != POISON
+          if POISON != job
             job.run
           else
             break
