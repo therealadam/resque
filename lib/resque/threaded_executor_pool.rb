@@ -36,7 +36,7 @@ module Resque
       Thread.new {
         while job = @queue.pop
           if POISON != job
-            job.run
+            job.call
           else
             break
           end

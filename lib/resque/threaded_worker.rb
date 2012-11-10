@@ -15,10 +15,20 @@ module Resque
       Job.new(queue.name, job)
     end
 
-    def work
+    def work(polling_interval=5.0)
       job      = fetch
-      runnable = -> { job.perform }
+      runnable = -> {
+        begin
+          job.perform
+        rescue => e
+          job.fail(e)
+        end
+      }
       @executor.execute(runnable)
+    end
+
+    def shutdown
+      @executor.shutdown
     end
 
   end
