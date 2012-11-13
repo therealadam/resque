@@ -34,6 +34,31 @@ describe "Resque::ThreadedWorker" do
     assert_equal 1, Resque::Failure.count
   end
 
+  it "failed jobs report exception and message" do
+    Resque::Job.create(:jobs, BadJobWithSyntaxError)
+    @worker.work(0)
+    @worker.shutdown
+    assert_equal('SyntaxError', Resque::Failure.all['exception'])
+    assert_equal('Extra Bad job!', Resque::Failure.all['error'])
+  end
+
+  it "unavailable job definition reports exception and message" do
+    Resque::Job.create(:jobs, 'NoJobDefinition')
+    @worker.work(0)
+    @worker.shutdown
+
+    assert_equal 1, Resque::Failure.count, 'failure not reported'
+    assert_equal('NameError', Resque::Failure.all['exception'])
+    assert_match('uninitialized constant', Resque::Failure.all['error'])
+  end
+
+  it "does not allow exceptions from failure backend to escape" do
+    job = Resque::Job.new(:jobs, {})
+    with_failure_backend BadFailureBackend do
+      @worker.perform job
+    end
+  end
+
   # TODO replace with a real executor
   class FakeExecutor
     @@called = 0

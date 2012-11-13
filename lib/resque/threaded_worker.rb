@@ -16,11 +16,18 @@ module Resque
     end
 
     def work(polling_interval=5.0)
-      job      = fetch
+      perform(fetch)
+    end
+
+    def perform(job)
+      dispatch(job)
+    end
+
+    def dispatch(job)
       runnable = -> {
         begin
           job.perform
-        rescue => e
+        rescue Object => e
           job.fail(e)
         end
       }
