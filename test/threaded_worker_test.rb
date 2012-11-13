@@ -59,6 +59,15 @@ describe "Resque::ThreadedWorker" do
     end
   end
 
+  it "fails uncompleted jobs with DirtyExit by default on exit" do
+    job = Resque::Job.new(:jobs, {'class' => 'GoodJob', 'args' => "blah"})
+    @worker.working_on(job)
+    @worker.unregister_worker
+    @worker.shutdown
+    assert_equal 1, Resque::Failure.count
+    assert_equal('Resque::DirtyExit', Resque::Failure.all['exception'])
+  end
+
   # TODO replace with a real executor
   class FakeExecutor
     @@called = 0
