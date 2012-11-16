@@ -46,39 +46,27 @@ module Resque
 
     include Resque::Helpers # XXX extract a real helper object?
 
-    def id
-      @id ||= begin
+    def worker_id
+      @worker_id ||= begin
                 queues = @queue_names.map { |q| q.to_s.strip }.join(',')
-                "#{hostname}:#{pid}:#{queues}"
+                [Resque::Environment.hostname,
+                 Resque::Environment.pid,queues].join(':')
               end
-    end
-
-    # XXX move to helpers
-    def hostname
-      Socket.gethostname
-    end
-
-    # XXX move to helpers
-    # Returns Integer PID of running worker
-    def pid
-      # Use pid+thread_num
-      Process.pid
     end
 
     # Private: Given a job, tells Redis we're working on it. Useful for seeing
     # what workers are doing and when.
     def working_on(job)
-      # XXX copypasta
-      data = encode \
-        :queue   => job.queue,
-        :run_at  => Time.now.rfc2822,
-        :payload => job.payload
-      redis.set("worker:#{id}", data)
+      backend.working_on(worker_id, job.queue, job.payload)
+    end
+
+    def backend
+      Resque::Backend
     end
 
     # Unregisters ourself as a worker. Useful when shutting down.
     def unregister_worker(exception = nil)
-      processing = JSON.load(redis.get("worker:#{id}")) # XXX no idea how processing is set in Worker
+      processing = JSON.load(redis.get("worker:#{worker_id}")) # XXX no idea how processing is set in Worker
       # XXX copypasta
       # If we're still processing a job, make sure it gets logged as a
       # failure.
@@ -90,12 +78,12 @@ module Resque
         job.fail(exception || DirtyExit.new)
       end
 
-      redis.srem(:workers, id)
-      redis.del("worker:#{id}")
-      redis.del("worker:#{id}:started")
+      redis.srem(:workers, worker_id)
+      redis.del("worker:#{worker_id}")
+      redis.del("worker:#{worker_id}:started")
 
-      Stat.clear("processed:#{id}")
-      Stat.clear("failed:#{id}")
+      Stat.clear("processed:#{worker_id}")
+      Stat.clear("failed:#{worker_id}")
     end
 
   end
