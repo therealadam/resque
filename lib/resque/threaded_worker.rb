@@ -64,26 +64,25 @@ module Resque
       Resque::Backend
     end
 
-    # Unregisters ourself as a worker. Useful when shutting down.
+    # Private: Unregisters ourself as a worker. Useful when shutting down.
     def unregister_worker(exception = nil)
-      processing = JSON.load(redis.get("worker:#{worker_id}")) # XXX no idea how processing is set in Worker
-      # XXX copypasta
-      # If we're still processing a job, make sure it gets logged as a
-      # failure.
-      if (hash = processing) && !hash.empty?
-        job = Job.new(hash['queue'], hash['payload'])
-        # Ensure the proper worker is attached to this job, even if
-        # it's not the precise instance that died.
-        job.worker = self
-        job.fail(exception || DirtyExit.new)
-      end
+      fail_current_job(exception)
+      backend.remove_worker_info(worker_id)
+      backend.clear_worker_stats(worker_id)
+    end
 
-      redis.srem(:workers, worker_id)
-      redis.del("worker:#{worker_id}")
-      redis.del("worker:#{worker_id}:started")
+    # Private: If we're still processing a job, make sure it gets logged as a
+    # failure.
+    def fail_current_job(exception)
+      current_job = backend.current_job(worker_id)
+      return if current_job.empty?
 
-      Stat.clear("processed:#{worker_id}")
-      Stat.clear("failed:#{worker_id}")
+      job = Job.new(current_job['queue'], current_job['payload'])
+
+      # Ensure the proper worker is attached to this job, even if
+      # it's not the precise instance that died.
+      job.worker = self
+      job.fail(exception || DirtyExit.new)
     end
 
   end
