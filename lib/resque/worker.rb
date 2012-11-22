@@ -9,8 +9,6 @@ module Resque
   # It also ensures workers are always listening to signals from you,
   # their master, and can react accordingly.
   class Worker
-    extend  Resque::Helpers
-    include Resque::Helpers
     include Resque::Logging
 
     # Boolean indicating whether this worker can or can not fork.
@@ -608,6 +606,22 @@ module Resque
     def procline(string)
       $0 = "resque-#{Resque::Version}: #{string}"
       Resque.logger.debug $0
+    end
+
+    def self.redis
+      Resque.redis
+    end
+
+    def redis
+      Resque.redis
+    end
+
+    def encode(object)
+      Resque.coder.encode(object)
+    end
+
+    def decode(object)
+      Resque.coder.decode(object)
     end
   end
 end
