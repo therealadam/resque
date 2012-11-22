@@ -21,7 +21,7 @@ module Resque
 
     # Returns an array of all worker objects.
     def self.all
-      all_workers.map { |id| find(id) }.compact
+      backend.all_workers.map { |id| find(id) }.compact
     end
 
     # Returns an array of all worker objects currently processing
@@ -32,7 +32,7 @@ module Resque
 
       names.map! { |name| "worker:#{name}" }
 
-      reportedly_working(names).keys.map do |key|
+      backend.reportedly_working(names).keys.map do |key|
         find key.sub("worker:", '')
       end.compact
     end
@@ -57,7 +57,7 @@ module Resque
     # Given a string worker id, return a boolean indicating whether the
     # worker exists
     def self.exists?(worker_id)
-      worker_exists(worker_id)
+      backend.worker_exists?(worker_id)
     end
 
     # Workers should be initialized with an array of string queue
@@ -117,7 +117,7 @@ module Resque
         if job = reserve(interval)
           Resque.logger.info "got: #{job.inspect}"
           job.worker = self
-          working_on job, self
+          backend.working_on job, self
 
           if @child = fork(job)
             srand # Reseeding
@@ -131,7 +131,7 @@ module Resque
           else
             unregister_signal_handlers if will_fork?
             procline "Processing #{job.queue} since #{Time.now.to_i}"
-            reconnect
+            backend.reconnect
             perform(job, &block)
             exit!(true) if will_fork?
           end
@@ -156,7 +156,7 @@ module Resque
       return unless job ||= reserve
 
       job.worker = self
-      working_on job, self
+      backend.working_on job, self
       perform(job, &block)
     ensure
       done_working
@@ -385,7 +385,7 @@ module Resque
     # Registers ourself as a worker. Useful when entering the worker
     # lifecycle on startup.
     def register_worker
-      add_worker(self)
+      backend.add_worker(self)
       started!
     end
 
@@ -413,7 +413,7 @@ module Resque
         job.fail(exception || DirtyExit.new)
       end
 
-      remove_worker(self)
+      backend.remove_worker(self)
 
       Stat.clear("processed:#{self}")
       Stat.clear("failed:#{self}")
@@ -423,7 +423,7 @@ module Resque
     # and tells Redis we processed a job.
     def done_working
       processed!
-      remove_working_entry(self)
+      backend.remove_working_entry(self)
     end
 
     # How many jobs has this worker processed? Returns an int.
@@ -450,17 +450,17 @@ module Resque
 
     # What time did this worker start? Returns an instance of `Time`
     def started
-      get_worker_started_at(self)
+      backend.get_worker_started_at(self)
     end
 
     # Tell Redis we've started
     def started!
-      set_worker_started_at(self)
+      backend.set_worker_started_at(self)
     end
 
     # Returns a hash explaining the Job we're currently processing, if any.
     def job
-      fetch_job(self)
+      backend.fetch_job(self)
     end
     alias_method :processing, :job
 
@@ -481,7 +481,7 @@ module Resque
     # Returns a symbol representing the current worker state,
     # which can be either :working or :idle
     def state
-      worker_state(self) ? :working : :idle
+      backend.worker_state(self) ? :working : :idle
     end
 
     # Is this worker the same as another worker?
@@ -565,103 +565,12 @@ module Resque
       Resque.logger.debug $0
     end
 
-    # -----------------------
-    # Move all these things into other classes. It's an OO language, ya'll.
-
-    def self.redis
-      Resque.redis
+    def backend
+      Resque::Backend
     end
 
-    def redis
-      Resque.redis
-    end
-
-    def encode(object)
-      Resque.coder.encode(object)
-    end
-
-    def decode(object)
-      Resque.coder.decode(object)
-    end
-
-    def self.all_workers
-      Array(redis.smembers(:workers))
-    end
-
-    def self.reportedly_working(names)
-      working = {}
-      working = redis.mapped_mget(*names).reject do |key, value|
-        value.nil? || value.empty?
-      end
-      working
-    rescue Redis::Distributed::CannotDistribute
-      names.each do |name|
-        value = redis.get name
-        working[name] = value unless value.nil? || value.empty?
-      end
-      working
-    end
-
-    def self.worker_exists(worker_id)
-      redis.sismember(:workers, worker_id)
-    end
-
-    # Reconnect to Redis to avoid sharing a connection with the parent,
-    # retry up to 3 times with increasing delay before giving up.
-    def reconnect
-      tries = 0
-      begin
-        redis.client.reconnect
-      rescue Redis::BaseConnectionError
-        if (tries += 1) <= 3
-          Resque.logger.info "Error reconnecting to Redis; retrying"
-          sleep(tries)
-          retry
-        else
-          Resque.logger.info "Error reconnecting to Redis; quitting"
-          raise
-        end
-      end
-    end
-
-    def add_worker(worker)
-      redis.sadd(:workers, worker)
-    end
-
-    def remove_worker(worker)
-      redis.srem(:workers, worker)
-      redis.del("worker:#{worker}")
-      redis.del("worker:#{worker}:started")
-    end
-
-    # Given a job, tells Redis we're working on it. Useful for seeing
-    # what workers are doing and when.
-    def working_on(job, worker)
-      data = encode \
-        :queue   => job.queue,
-        :run_at  => Time.now.rfc2822,
-        :payload => job.payload
-      redis.set("worker:#{worker}", data)
-    end
-
-    def remove_working_entry(worker)
-      redis.del("worker:#{worker}")
-    end
-
-    def set_worker_started_at(worker)
-      redis.set("worker:#{self}:started", Time.now.rfc2822)
-    end
-
-    def get_worker_started_at(worker)
-      redis.get "worker:#{worker}:started"
-    end
-
-    def fetch_job(worker)
-      decode(redis.get("worker:#{self}")) || {}
-    end
-
-    def worker_state(worker)
-      redis.exists("worker:#{self}")
+    def self.backend
+      Resque::Backend
     end
 
   end

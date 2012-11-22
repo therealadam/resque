@@ -8,6 +8,7 @@ require 'resque/errors'
 require 'resque/failure'
 require 'resque/failure/base'
 
+require 'resque/backend'
 require 'resque/helpers'
 require 'resque/stat'
 require 'resque/logging'
