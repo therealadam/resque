@@ -241,7 +241,7 @@ describe "Resque" do
     2.times { @worker.process }
 
     job = @worker.reserve
-    @worker.working_on job
+    @worker.working_on job, @worker
 
     stats = Resque.info
     assert_equal 1, stats[:working]

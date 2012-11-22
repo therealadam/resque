@@ -49,7 +49,7 @@ describe "Resque::Worker" do
 
   it "fails uncompleted jobs with DirtyExit by default on exit" do
     job = Resque::Job.new(:jobs, {'class' => 'GoodJob', 'args' => "blah"})
-    @worker.working_on(job)
+    @worker.working_on(job, @worker)
     @worker.unregister_worker
     assert_equal 1, Resque::Failure.count
     assert_equal('Resque::DirtyExit', Resque::Failure.all['exception'])
@@ -57,7 +57,7 @@ describe "Resque::Worker" do
 
   it "fails uncompleted jobs with worker exception on exit" do
     job = Resque::Job.new(:jobs, {'class' => 'GoodJob', 'args' => "blah"})
-    @worker.working_on(job)
+    @worker.working_on(job, @worker)
     @worker.unregister_worker(StandardError.new)
     assert_equal 1, Resque::Failure.count
     assert_equal('StandardError', Resque::Failure.all['exception'])
@@ -75,7 +75,7 @@ describe "Resque::Worker" do
 
   it "fails uncompleted jobs on exit, and calls failure hook" do
     job = Resque::Job.new(:jobs, {'class' => 'SimpleJobWithFailureHandling', 'args' => ""})
-    @worker.working_on(job)
+    @worker.working_on(job, @worker)
     @worker.unregister_worker
     assert_equal 1, Resque::Failure.count
     assert(SimpleJobWithFailureHandling.exception.kind_of?(Resque::DirtyExit))
