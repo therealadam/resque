@@ -122,7 +122,9 @@ module Resque
 
         # Execute the job. Do it in an around_perform hook if available.
         if around_hooks.empty?
-          job.perform(*job_args)
+          job.
+            method(job.respond_to?(:call) ? :call : :perform).
+            call(*job_args)
           job_was_performed = true
         else
           # We want to nest all around_perform plugins, with the last one
