@@ -404,7 +404,7 @@ describe "Resque::Worker" do
   end
 
   it "worker_pids returns pids" do
-    known_workers = @worker.worker_pids
+    known_workers = Resque::Environment.worker_pids
     assert !known_workers.empty?
   end
 
@@ -489,7 +489,7 @@ describe "Resque::Worker" do
   end
 
   it "returns PID of running process" do
-    assert_equal @worker.to_s.split(":")[1].to_i, @worker.pid
+    assert_equal @worker.to_s.split(":")[1].to_i, Resque::Environment.pid
   end
 
   it "requeue failed queue" do
@@ -584,7 +584,7 @@ describe "Resque::Worker" do
 
     assert !before_pause_called
 
-    t = Thread.start { sleep(0.1); Process.kill('CONT', @worker.pid) }
+    t = Thread.start { sleep(0.1); Process.kill('CONT', Resque::Environment.pid) }
 
     @worker.work(0)
 
@@ -607,7 +607,7 @@ describe "Resque::Worker" do
 
     assert !after_pause_called
 
-    t = Thread.start { sleep(0.1); Process.kill('CONT', @worker.pid) }
+    t = Thread.start { sleep(0.1); Process.kill('CONT', Resque::Environment.pid) }
 
     @worker.work(0)
 

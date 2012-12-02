@@ -165,7 +165,7 @@ describe "Resque Hooks" do
 
     assert(!first && !second)
 
-    t = Thread.start { sleep(0.1); Process.kill('CONT', @worker.pid) }
+    t = Thread.start { sleep(0.1); Process.kill('CONT', Resque::Environment.pid) }
     @worker.work(0)
     t.join
 
@@ -183,7 +183,7 @@ describe "Resque Hooks" do
 
     assert(!first && !second)
 
-    t = Thread.start { sleep(0.1); Process.kill('CONT', @worker.pid) }
+    t = Thread.start { sleep(0.1); Process.kill('CONT', Resque::Environment.pid) }
     @worker.work(0)
     t.join
 

@@ -121,7 +121,7 @@ module Resque
 
           if @child = fork(job)
             srand # Reseeding
-            procline "Forked #{@child} at #{Time.now.to_i}"
+            environment.procline "Forked #{@child} at #{Time.now.to_i}"
             begin
               Process.waitpid(@child)
             rescue SystemCallError
@@ -130,7 +130,7 @@ module Resque
             job.fail(DirtyExit.new($?.to_s)) if $?.signaled?
           else
             unregister_signal_handlers if will_fork?
-            procline "Processing #{job.queue} since #{Time.now.to_i}"
+            environment.procline "Processing #{job.queue} since #{Time.now.to_i}"
             backend.reconnect
             perform(job, &block)
             exit!(true) if will_fork?
@@ -141,7 +141,7 @@ module Resque
         else
           break if interval.zero?
           Resque.logger.debug "Timed out after #{interval} seconds"
-          procline paused? ? "Paused" : "Waiting for #{@queues.join(',')}"
+          environment.procline paused? ? "Paused" : "Waiting for #{@queues.join(',')}"
         end
       end
 
@@ -372,10 +372,10 @@ module Resque
     # environment, we can determine if Redis is old and clean it up a bit.
     def prune_dead_workers
       all_workers = Worker.all
-      known_workers = worker_pids unless all_workers.empty?
+      known_workers = environment.worker_pids unless all_workers.empty?
       all_workers.each do |worker|
         host, pid, queues = worker.id.split(':')
-        next unless host == hostname
+        next unless host == environment.hostname
         next if known_workers.include?(pid)
         Resque.logger.debug "Pruning dead worker: #{worker}"
         worker.unregister_worker
@@ -496,73 +496,12 @@ module Resque
     # The string representation is the same as the id for this worker
     # instance. Can be used with `Worker.find`.
     def to_s
-      @to_s ||= "#{hostname}:#{Process.pid}:#{@queues.join(',')}"
+      @to_s ||= "#{environment.hostname}:#{Resque::Environment.pid}:#{@queues.join(',')}"
     end
     alias_method :id, :to_s
 
-    def hostname
-      Socket.gethostname
-    end
-
-    # Returns Integer PID of running worker
-    def pid
-      Process.pid
-    end
-
-    # Returns an Array of string pids of all the other workers on this
-    # machine. Useful when pruning dead workers on startup.
-    def worker_pids
-      if RUBY_PLATFORM =~ /solaris/
-        solaris_worker_pids
-      elsif RUBY_PLATFORM =~ /mingw32/
-        windows_worker_pids
-      else
-        linux_worker_pids
-      end
-    end
-
-    # Find Resque worker pids on Windows.
-    #
-    # Returns an Array of string pids of all the other workers on this
-    # machine. Useful when pruning dead workers on startup.
-    def windows_worker_pids
-      `tasklist  /FI "IMAGENAME eq ruby.exe" /FO list`.split($/).select { |line| line =~ /^PID:/}.collect{ |line| line.gsub /PID:\s+/, '' }
-    end
-
-    # Find Resque worker pids on Linux and OS X.
-    #
-    def linux_worker_pids
-      get_worker_pids('ps -A -o pid,command')
-    end
-
-    # Find Resque worker pids on Solaris.
-    #
-    def solaris_worker_pids
-      get_worker_pids('ps -A -o pid,args')
-    end
-
-    # Find worker pids - platform independent
-    #
-    # Returns an Array of string pids of all the other workers on this
-    # machine. Useful when pruning dead workers on startup.
-    def get_worker_pids(command)
-       active_worker_pids = []
-       output = %x[#{command}]  # output format of ps must be ^<PID> <COMMAND WITH ARGS>
-       raise 'System call for ps command failed. Please make sure that you have a compatible ps command in the path!' unless $?.success?
-       output.split($/).each{|line|
-        next unless line =~ /resque/i
-        next if line =~ /resque-web/
-        active_worker_pids.push line.split(' ')[0]
-       }
-       active_worker_pids
-    end
-
-    # Given a string, sets the procline ($0) and logs.
-    # Procline is always in the format of:
-    #   resque-VERSION: STRING
-    def procline(string)
-      $0 = "resque-#{Resque::Version}: #{string}"
-      Resque.logger.debug $0
+    def environment
+      Resque::Environment
     end
 
     def backend
@@ -575,3 +514,4 @@ module Resque
 
   end
 end
+
