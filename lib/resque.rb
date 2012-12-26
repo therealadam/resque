@@ -20,6 +20,7 @@ require 'resque/queue'
 require 'resque/multi_queue'
 require 'resque/coder'
 require 'resque/json_coder'
+require 'resque/queues'
 
 require 'resque/vendor/utf8_util'
 
@@ -53,9 +54,6 @@ module Resque
     else
       @redis = Redis::Namespace.new(:resque, :redis => server)
     end
-    @queues = Hash.new { |h,name|
-      h[name] = Resque::Queue.new(name, @redis, coder)
-    }
   end
 
   # Encapsulation of encode/decode. Overwrite this to use it across Resque.
@@ -276,12 +274,12 @@ module Resque
   # Given a queue name, completely deletes the queue.
   def remove_queue(queue)
     queue(queue).destroy
-    @queues.delete(queue.to_s)
+    Resque::Queues.delete(queue.to_s)
   end
 
   # Return the Resque::Queue object for a given name
   def queue(name)
-    @queues[name.to_s]
+    Resque::Queues[name]
   end
 
 

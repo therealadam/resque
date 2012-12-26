@@ -3,6 +3,7 @@ require 'test_helper'
 describe "Resque" do
   before do
     Resque.redis.flushall
+    Resque::Queues.clear
 
     Resque.push(:people, { 'name' => 'chris' })
     Resque.push(:people, { 'name' => 'bob' })
